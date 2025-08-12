@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Змейка — Мобильный Легион</title>
+    <style>
+        body {
+            background: #111;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        canvas {
+            background: #222;
+            border: 2px solid #fff;
+        }
+        h1 {
+            margin: 5px;
+            text-align: center;
+            font-size: 20px;
+        }
+        #score, #progress {
+            font-size: 18px;
+            letter-spacing: 2px;
+            margin-top: 5px;
+            text-align: center;
+        }
+        .controls {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: 80px 80px 80px;
+            grid-template-rows: 80px 80px 80px;
+            gap: 5px;
+            justify-content: center;
+        }
+        .btn {
+            background: #444;
+            color: white;
+            border: none;
+            font-size: 28px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .btn:active {
+            background: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Собери фразу "Мобильный Легион" и получи скидку 20%!</h1>
+    <canvas id="gameCanvas"></canvas>
+    <p id="score">Собрано букв: 0 / 15</p>
+    <p id="progress"></p>
+
+    <div class="controls">
+        <div></div>
+        <button class="btn" id="up">↑</button>
+        <div></div>
+        <button class="btn" id="left">←</button>
+        <div></div>
+        <button class="btn" id="right">→</button>
+        <div></div>
+        <button class="btn" id="down">↓</button>
+        <div></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Размеры под телефон
+        let box = 20;
+        let cols = 20;
+        let rows = 20;
+        canvas.width = box * cols;
+        canvas.height = box * rows;
+
+        const phrase = "МОБИЛЬНЫЙ ЛЕГИОН";
+        let collectedCount = 0;
+        let progressArray = phrase.split("").map(l => l === " " ? " " : "_");
+        let currentLetterIndex = 0;
+
+        let snake = [{x: 9 * box, y: 9 * box}];
+        let direction;
+        let letter = getNextLetter();
+
+        updateProgress();
+
+        // Управление с клавиатуры
+        document.addEventListener("keydown", event => {
+            if (event.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
+            else if (event.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
+            else if (event.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
+            else if (event.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
+        });
+
+        // Виртуальные кнопки
+        document.getElementById("up").addEventListener("click", () => { if (direction !== "DOWN") direction = "UP"; });
+        document.getElementById("down").addEventListener("click", () => { if (direction !== "UP") direction = "DOWN"; });
+        document.getElementById("left").addEventListener("click", () => { if (direction !== "RIGHT") direction = "LEFT"; });
+        document.getElementById("right").addEventListener("click", () => { if (direction !== "LEFT") direction = "RIGHT"; });
+
+        function getNextLetter() {
+            while (phrase[currentLetterIndex] === " ") {
+                progressArray[currentLetterIndex] = " ";
+                currentLetterIndex++;
+            }
+            if (currentLetterIndex >= phrase.length) return null;
+            return {
+                char: phrase[currentLetterIndex],
+                x: Math.floor(Math.random() * cols) * box,
+                y: Math.floor(Math.random() * rows) * box
+            };
+        }
+
+        function updateProgress() {
+            document.getElementById("progress").innerText = progressArray.join("");
+            document.getElementById("score").innerText = `Собрано букв: ${collectedCount} / ${phrase.replace(/ /g, "").length}`;
+        }
+
+        function drawGame() {
+            ctx.fillStyle = "#222";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < snake.length; i++) {
+                ctx.fillStyle = i === 0 ? "lime" : "green";
+                ctx.fillRect(snake[i].x, snake[i].y, box, box);
+            }
+
+            if (letter) {
+                ctx.fillStyle = "yellow";
+                ctx.font = "16px Arial";
+                ctx.fillText(letter.char, letter.x + 4, letter.y + 16);
+            }
+
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            if (direction === "LEFT") snakeX -= box;
+            if (direction === "UP") snakeY -= box;
+            if (direction === "RIGHT") snakeX += box;
+            if (direction === "DOWN") snakeY += box;
+
+            if (letter && snakeX === letter.x && snakeY === letter.y) {
+                progressArray[currentLetterIndex] = letter.char;
+                collectedCount++;
+                currentLetterIndex++;
+                letter = getNextLetter();
+                updateProgress();
+
+                if (collectedCount >= phrase.replace(/ /g, "").length) {
+                    alert(`Поздравляем! Вы собрали фразу "${phrase}" и получили скидку 20%!`);
+                    window.location.href = "https://t.me/Kornik777";
+                }
+            } else {
+                snake.pop();
+            }
+
+            let newHead = {x: snakeX, y: snakeY};
+
+            if (
+                snakeX < 0 || snakeX >= canvas.width ||
+                snakeY < 0 || snakeY >= canvas.height ||
+                collision(newHead, snake)
+            ) {
+                clearInterval(game);
+                alert("Игра окончена! Попробуйте снова.");
+                location.reload();
+            }
+
+            snake.unshift(newHead);
+        }
+
+        function collision(head, array) {
+            return array.some(seg => seg.x === head.x && seg.y === head.y);
+        }
+
+        let game = setInterval(drawGame, 120);
+    </script>
+</body>
+</html>
